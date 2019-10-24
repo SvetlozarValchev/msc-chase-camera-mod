@@ -63,8 +63,8 @@ namespace ChaseCamera
         public ChaseCamera()
         {
             settingsResetAfterInactivity = new Settings("resetAfterInactivity", "Reset camera on inactivity", resetAfterInactivity, () => ApplySettings());
-            settingsSmoothFollow = new Settings("smoothFollow", "Follow Smooth (higher is smoother)", smoothFollow, () => ApplySettings());
-            settingsSmoothLook = new Settings("smoothLook", "Look Smooth (lower is smoother)", smoothLook, () => ApplySettings());
+            settingsSmoothFollow = new Settings("smoothFollow", "Follow Smooth", smoothFollow, () => ApplySettings());
+            settingsSmoothLook = new Settings("smoothLook", "Look Smooth", smoothLook, () => ApplySettings());
             settingsResetAfterTime = new Settings("resetAfterTime", "Inactivity time", resetAfterTime, () => ApplySettings());
         }
 
