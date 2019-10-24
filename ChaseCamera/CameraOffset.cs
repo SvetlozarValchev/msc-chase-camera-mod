@@ -18,12 +18,15 @@ namespace ChaseCamera
         public Settings settingsOffsetZ;
         public Settings settingsLookAtOffsetY;
 
-        public CameraOffset(string name, string gameObjectName, Vector3 offset, Vector3 lookAtOffset)
+        public float audioMinDistance;
+
+        public CameraOffset(string name, string gameObjectName, Vector3 offset, Vector3 lookAtOffset, float audioMinDistance)
         {
             this.name = name;
             this.gameObjectName = gameObjectName;
             this.offset = offset;
             this.lookAtOffset = lookAtOffset;
+            this.audioMinDistance = audioMinDistance;
 
             settingsOffsetY = new Settings(name + "_offsetY_v1.1", "Offset Y", offset.y, () => ApplySettings());
             settingsOffsetZ = new Settings(name + "_offsetZ_v1.1", "Offset Z", offset.z, () => ApplySettings());

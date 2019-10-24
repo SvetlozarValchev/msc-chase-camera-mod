@@ -12,16 +12,16 @@ namespace ChaseCamera
         public override string ID => "ChaseCamera"; //Your mod ID (unique)
         public override string Name => "ChaseCamera"; //You mod name
         public override string Author => "cbethax"; //Your Username
-        public override string Version => "1.1.0"; //Version
+        public override string Version => "1.2.0"; //Version
         public override bool UseAssetsFolder => false;
 
         readonly Keybind showGuiKeyBind = new Keybind("ChaseCameraKey", "Chase Camera Key", KeyCode.C);
-
 
         Settings settingsSmoothFollow;
         Settings settingsSmoothLook;
         Settings settingsResetAfterInactivity;
         Settings settingsResetAfterTime;
+        Settings settingsShowSpeedAndRpm;
 
         GameObject player;
         GameObject fpsCameraParent;
@@ -49,23 +49,29 @@ namespace ChaseCamera
 
         public static float resetAfterTime = 2f;
 
+        public static bool showSpeedAndRpm = true;
+
+        GameObject guiSpeed;
+        TextMesh guiSpeedTextMesh;
+        TextMesh guiSpeedShadowMesh;
+        GameObject guiRpm;
+        TextMesh guiRpmTextMesh;
+        TextMesh guiRpmShadowMesh;
+
         public static List<CameraOffset> vehicleCameras = new List<CameraOffset>()
         {
-            new CameraOffset("Satsuma", "SATSUMA(557kg, 248)", new Vector3(0f, 1.5f, 4f), new Vector3(0f, 1f, 0f)),
-            new CameraOffset("Ruscko", "RCO_RUSCKO12(270)", new Vector3(0f, 2f, 4.5f), new Vector3(0f, 1f, 0f)),
-            new CameraOffset("Kekmet", "KEKMET(350-400psi)", new Vector3(0f, 4f, 9f), new Vector3(0f, 2f, 0f)),
-            new CameraOffset("Gifu", "GIFU(750/450psi)", new Vector3(0f, 5f, 8f), new Vector3(0f, 2f, 0f)),
-            new CameraOffset("Hayosiko", "HAYOSIKO(1500kg, 250)", new Vector3(0f, 2.5f, 4f), new Vector3(0f, 1f, 0f)),
-            new CameraOffset("Ferndale", "FERNDALE(1630kg)", new Vector3(0f, 2f, 5f), new Vector3(0f, 1f, 0f)),
-            new CameraOffset("Second Ferndale (Mod)", "FERNDALE(1630kg)(Clone)", new Vector3(0f, 2f, 5f), new Vector3(0f, 1f, 0f))
+            new CameraOffset("Satsuma", "SATSUMA(557kg, 248)", new Vector3(0f, 1.5f, 4f), new Vector3(0f, 1f, 0f), 3f),
+            new CameraOffset("Ruscko", "RCO_RUSCKO12(270)", new Vector3(0f, 2f, 4.5f), new Vector3(0f, 1f, 0f), 3f),
+            new CameraOffset("Kekmet", "KEKMET(350-400psi)", new Vector3(0f, 4f, 9f), new Vector3(0f, 2f, 0f), 3f),
+            new CameraOffset("Gifu", "GIFU(750/450psi)", new Vector3(0f, 5f, 8f), new Vector3(0f, 2f, 0f), 5f),
+            new CameraOffset("Hayosiko", "HAYOSIKO(1500kg, 250)", new Vector3(0f, 2.5f, 4f), new Vector3(0f, 1f, 0f), 4f),
+            new CameraOffset("Ferndale", "FERNDALE(1630kg)", new Vector3(0f, 2f, 5f), new Vector3(0f, 1f, 0f), 4f),
+            new CameraOffset("Second Ferndale (Mod)", "FERNDALE(1630kg)(Clone)", new Vector3(0f, 2f, 5f), new Vector3(0f, 1f, 0f), 4f)
         };
 
         public ChaseCamera()
         {
-            settingsResetAfterInactivity = new Settings("resetAfterInactivity", "Reset camera on inactivity", resetAfterInactivity, () => ApplySettings());
-            settingsSmoothFollow = new Settings("smoothFollow", "Follow Smooth", smoothFollow, () => ApplySettings());
-            settingsSmoothLook = new Settings("smoothLook", "Look Smooth", smoothLook, () => ApplySettings());
-            settingsResetAfterTime = new Settings("resetAfterTime", "Inactivity time", resetAfterTime, () => ApplySettings());
+            InitSettings();
         }
 
         public override void OnLoad()
@@ -78,11 +84,52 @@ namespace ChaseCamera
             crosshair = GameObject.Find("GUI/Icons/GUITexture");
             chaseSphere = new GameObject("ChaseSphere");
             chaseCamera = new GameObject("ChaseCamera");
+
+            InitGUI();
+        }
+
+        void InitGUI()
+        {
+            GameObject guiIndicatorsContainer = GameObject.Find("GUI/Indicators");
+            GameObject guiGear = GameObject.Find("GUI/Indicators/Gear");
+
+            guiSpeed = GameObject.Instantiate(guiGear);
+            guiSpeed.name = "Speed";
+            guiSpeedTextMesh = guiSpeed.GetComponent<TextMesh>();
+            guiSpeedShadowMesh = guiSpeed.transform.GetChild(0).GetComponent<TextMesh>();
+            guiRpm = GameObject.Instantiate(guiGear);
+            guiRpm.name = "RPM";
+            guiRpmTextMesh = guiRpm.GetComponent<TextMesh>();
+            guiRpmShadowMesh = guiRpm.transform.GetChild(0).GetComponent<TextMesh>();
+
+            GameObject.Destroy(guiSpeed.GetComponent<PlayMakerFSM>());
+            GameObject.Destroy(guiRpm.GetComponent<PlayMakerFSM>());
+
+            guiSpeed.transform.SetParent(guiIndicatorsContainer.transform, false);
+            guiRpm.transform.SetParent(guiIndicatorsContainer.transform, false);
+            guiSpeed.transform.localPosition = new Vector3(guiSpeed.transform.localPosition.x * -1, guiSpeed.transform.localPosition.y + guiSpeed.transform.localPosition.y * 2, guiSpeed.transform.localPosition.z);
+            guiRpm.transform.localPosition = new Vector3(guiRpm.transform.localPosition.x * -1, guiRpm.transform.localPosition.y, guiRpm.transform.localPosition.z);
+            guiSpeedTextMesh.anchor = TextAnchor.UpperLeft;
+            guiSpeedShadowMesh.anchor = TextAnchor.UpperLeft;
+            guiRpmTextMesh.anchor = TextAnchor.UpperLeft;
+            guiRpmShadowMesh.anchor = TextAnchor.UpperLeft;
+            guiSpeed.SetActive(false);
+            guiRpm.SetActive(false);
+        }
+
+        void InitSettings()
+        {
+            settingsResetAfterInactivity = new Settings("resetAfterInactivity", "Reset camera on inactivity", resetAfterInactivity, () => ApplySettings());
+            settingsSmoothFollow = new Settings("smoothFollow", "Follow Smooth", smoothFollow, () => ApplySettings());
+            settingsSmoothLook = new Settings("smoothLook", "Look Smooth", smoothLook, () => ApplySettings());
+            settingsResetAfterTime = new Settings("resetAfterTime", "Inactivity time", resetAfterTime, () => ApplySettings());
+            settingsShowSpeedAndRpm = new Settings("showSpeedAndRpm", "Show Speed and RPM", showSpeedAndRpm, () => ApplySettings());
         }
 
         public override void ModSettings()
         {
             Settings.AddText(this, "Configuration");
+            Settings.AddCheckBox(this, settingsShowSpeedAndRpm);
             Settings.AddSlider(this, settingsSmoothFollow, 0f, 0.25f);
             Settings.AddSlider(this, settingsSmoothLook, 0f, 0.25f);
             Settings.AddCheckBox(this, settingsResetAfterInactivity);
@@ -104,6 +151,21 @@ namespace ChaseCamera
             foreach (CameraOffset cameraOffset in vehicleCameras)
             {
                 cameraOffset.ApplySettings();
+            }
+        }
+
+        void ApplySettings()
+        {
+            smoothFollow = float.Parse(settingsSmoothFollow.GetValue().ToString());
+            smoothLook = float.Parse(settingsSmoothLook.GetValue().ToString());
+            resetAfterInactivity = (bool)settingsResetAfterInactivity.GetValue();
+            resetAfterTime = float.Parse(settingsResetAfterTime.GetValue().ToString());
+            showSpeedAndRpm = (bool)settingsShowSpeedAndRpm.GetValue();
+
+            if (guiSpeed && guiRpm)
+            {
+                guiSpeed.SetActive(showSpeedAndRpm);
+                guiRpm.SetActive(showSpeedAndRpm);
             }
         }
 
@@ -166,12 +228,27 @@ namespace ChaseCamera
             }
         }
 
-        void ApplySettings()
+        public override void OnGUI()
         {
-            smoothFollow = float.Parse(settingsSmoothFollow.GetValue().ToString());
-            smoothLook = float.Parse(settingsSmoothLook.GetValue().ToString());
-            resetAfterInactivity = (bool)settingsResetAfterInactivity.GetValue();
-            resetAfterTime = float.Parse(settingsResetAfterTime.GetValue().ToString());
+            if (isCameraActive && showSpeedAndRpm)
+            {
+                Drivetrain drivetrain = targetVehicle.GetComponent<Drivetrain>();
+
+                float speed = drivetrain.differentialSpeed;
+
+                if (cameraOffset.name == "Gifu")
+                {
+                    speed *= 1.9f;
+                }
+
+                string textSpeed = "Speed: " + Mathf.Round(speed) + "km/h";
+                string textRpm = "RPM: " + Mathf.Round(drivetrain.rpm);
+
+                guiSpeedTextMesh.text = textSpeed;
+                guiSpeedShadowMesh.text = textSpeed;
+                guiRpmTextMesh.text = textRpm;
+                guiRpmShadowMesh.text = textRpm;
+            }
         }
 
         public static int IndexOfVehicleCamera(string gameObjectName)
@@ -215,13 +292,23 @@ namespace ChaseCamera
 
                 crosshair.SetActive(false);
                 SetupCamera();
+
+                if (showSpeedAndRpm)
+                {
+                    guiSpeed.SetActive(true);
+                    guiRpm.SetActive(true);
+                }
             }
             else
             {
+                guiSpeed.SetActive(false);
+                guiRpm.SetActive(false);
                 crosshair.SetActive(true);
                 ResetCamera();
             }
         }
+
+        Dictionary<AudioSource, float> originalAudioSourceMinDistance = new Dictionary<AudioSource, float>();
 
         void SetupCamera()
         {
@@ -233,11 +320,31 @@ namespace ChaseCamera
             chaseCamera.transform.rotation = chaseSphere.transform.rotation;
 
             fpsCameraChild.transform.SetParent(chaseCamera.transform, false);
+
+            foreach (AudioSource audioSource in targetVehicle.GetComponentsInChildren<AudioSource>())
+            {
+                if (audioSource.clip == null)
+                    continue;
+
+                originalAudioSourceMinDistance.Add(audioSource, audioSource.minDistance);
+
+                audioSource.minDistance *= cameraOffset.audioMinDistance;
+            }
         }
 
         void ResetCamera()
         {
             fpsCameraChild.transform.SetParent(fpsCameraParent.transform, false);
+
+            foreach (AudioSource audioSource in originalAudioSourceMinDistance.Keys)
+            {
+                if (audioSource.clip == null)
+                    continue;
+
+                audioSource.minDistance = originalAudioSourceMinDistance[audioSource];
+            }
+
+            originalAudioSourceMinDistance.Clear();
         }
     }
 }
