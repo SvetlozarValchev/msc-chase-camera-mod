@@ -31,16 +31,39 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>D:\Games\SteamLibrary\steamapps\common\My Summer Car\mysummercar_Data\Managed\Assembly-CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="MSCLoader">
+      <HintPath>D:\Games\SteamLibrary\steamapps\common\My Summer Car\mysummercar_Data\Managed\MSCLoader.dll</HintPath>
+    </Reference>
+    <Reference Include="PlayMaker">
+      <HintPath>D:\Games\SteamLibrary\steamapps\common\My Summer Car\mysummercar_Data\Managed\PlayMaker.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
+    <Reference Include="UnityEngine">
+      <HintPath>D:\Games\SteamLibrary\steamapps\common\My Summer Car\mysummercar_Data\Managed\UnityEngine.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CameraOffset.cs" />
     <Compile Include="ChaseCamera.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>if "$(ConfigurationName)" == "Debug" (
+copy $(TargetPath) "C:\Users\cbethax\Documents\MySummerCar\Mods" /y
+copy "$(TargetDir)$(TargetName).pdb" "C:\Users\cbethax\Documents\MySummerCar\Mods" /y
+cd "C:\Users\cbethax\Documents\MySummerCar\Mods"
+call "C:\Users\cbethax\Documents\MySummerCar\Mods\debug.bat"
+) ELSE (
+copy $(TargetPath) "C:\Users\cbethax\Documents\MySummerCar\Mods" /y
+)</PostBuildEvent>
+  </PropertyGroup>
 </Project>
