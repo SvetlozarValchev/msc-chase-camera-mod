@@ -27,16 +27,13 @@ namespace ChaseCamera
             this.offset = offset;
             this.lookAtOffset = lookAtOffset;
             this.audioMinDistance = audioMinDistance;
-
-            settingsOffsetY = new Settings(name + "_offsetY_v1.1", "Offset Y", offset.y, () => ApplySettings());
-            settingsOffsetZ = new Settings(name + "_offsetZ_v1.1", "Offset Z", offset.z, () => ApplySettings());
-            settingsLookAtOffsetY = new Settings(name + "_lookAtOffsetY_v1.1", "Look At Offset Y", lookAtOffset.y, () => ApplySettings());
         }
 
-        public void ApplySettings()
+        public void ApplySettings(float offsetY, float offsetZ, float lookAtOffsetY, float audioDistance)
         {
-            offset = new Vector3(offset.x, float.Parse(settingsOffsetY.GetValue().ToString(), CultureInfo.InvariantCulture), float.Parse(settingsOffsetZ.GetValue().ToString(), CultureInfo.InvariantCulture) * -1f);
-            lookAtOffset = new Vector3(lookAtOffset.x, float.Parse(settingsLookAtOffsetY.GetValue().ToString(), CultureInfo.InvariantCulture), lookAtOffset.z);
+            this.offset = new Vector3(offset.x, offsetY, offsetZ);
+            this.lookAtOffset = new Vector3(lookAtOffset.x, lookAtOffsetY, lookAtOffset.z);
+            this.audioMinDistance = audioDistance;
         }
     }
 }
