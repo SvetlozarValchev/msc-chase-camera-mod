@@ -13,16 +13,18 @@ namespace ChaseCamera
         public override string ID => "ChaseCamera"; //Your mod ID (unique)
         public override string Name => "ChaseCamera"; //You mod name
         public override string Author => "cbethax"; //Your Username
-        public override string Version => "1.3.0"; //Version
+        public override string Version => "1.4.0"; //Version
         public override bool UseAssetsFolder => true;
 
-        readonly Keybind showGuiKeyBind = new Keybind("ChaseCameraKey", "Chase Camera Key", KeyCode.C);
+        readonly Keybind chaseCameraKeyBind = new Keybind("ChaseCameraKey", "Chase Camera Key", KeyCode.C);
+        readonly Keybind lookBehindKeyBind = new Keybind("LookBehind", "Look Behind Key", KeyCode.Tab);
 
         Settings settingsSmoothFollow;
         Settings settingsSmoothLook;
         Settings settingsResetAfterInactivity;
         Settings settingsResetAfterTime;
         Settings settingsShowSpeedAndRpm;
+        Settings settingsLookBehindToggle;
         Settings settingsOffsetY;
         Settings settingsOffsetZ;
         Settings settingsLookAtOffsetY;
@@ -35,6 +37,9 @@ namespace ChaseCamera
         GameObject targetVehicle;
         GameObject chaseSphere;
         GameObject chaseCamera;
+
+        MonoBehaviour mouseLookX;
+        MonoBehaviour mouseLookY;
 
         Vector3 velocity;
 
@@ -51,6 +56,7 @@ namespace ChaseCamera
         public static bool resetAfterInactivity;
         public static float resetAfterTime;
         public static bool showSpeedAndRpm;
+        public static bool lookBehindToggle;
 
         GameObject guiSpeed;
         TextMesh guiSpeedTextMesh;
@@ -66,6 +72,11 @@ namespace ChaseCamera
 
         Timer saveTimer;
 
+        List<string> disabledRoots = new List<string>() { "BOAT", "PLAYER", "NPC_CARS", "TRAFFIC" };
+
+        bool isLookBehindActive = false;
+        bool isLookBehindActivated = false;
+
         public ChaseCamera()
         {
             string path = Path.Combine(ModLoader.GetModAssetsFolder(this), configFilename);
@@ -77,6 +88,7 @@ namespace ChaseCamera
             resetAfterInactivity = config.resetAfterInactivity;
             resetAfterTime = config.resetAfterTime;
             showSpeedAndRpm = config.showSpeedAndRpm;
+            lookBehindToggle = config.lookBehindToggle;
 
             foreach (ConfigVehicle vehicle in config.vehicles)
             {
@@ -88,6 +100,7 @@ namespace ChaseCamera
             settingsSmoothLook = new Settings("lookSmooth", "Look Smooth", smoothLook, () => ApplySettings());
             settingsResetAfterTime = new Settings("autoCenterDelay", "Auto-center delay (seconds)", resetAfterTime, () => ApplySettings());
             settingsShowSpeedAndRpm = new Settings("showSpeedAndRpm", "Show Speed and RPM", showSpeedAndRpm, () => ApplySettings());
+            settingsLookBehindToggle = new Settings("lookBehindToggle", "Look Behind Toggle", lookBehindToggle, () => ApplySettings());
             settingsOffsetY = new Settings("offsetY", "Offset Height", 0f, () => ApplySettings());
             settingsOffsetZ = new Settings("offsetZ", "Offset Length", 0f, () => ApplySettings());
             settingsLookAtOffsetY = new Settings("lookatOffsetY", "Look at Height", 0f, () => ApplySettings());
@@ -96,7 +109,7 @@ namespace ChaseCamera
 
         public override void OnLoad()
         {
-            Keybind.Add(this, showGuiKeyBind);
+            Keybind.Add(this, chaseCameraKeyBind);
 
             player = GameObject.Find("PLAYER");
             fpsCameraParent = GameObject.Find("PLAYER/Pivot/AnimPivot/Camera/FPSCamera");
@@ -105,7 +118,24 @@ namespace ChaseCamera
             chaseSphere = new GameObject("ChaseSphere");
             chaseCamera = new GameObject("ChaseCamera");
 
+            mouseLookX = FindMouseLook(player);
+            mouseLookY = FindMouseLook(fpsCameraParent);
+
             InitGUI();
+        }
+
+        MonoBehaviour FindMouseLook(GameObject gameobject)
+        {
+            var components = gameobject.GetComponents<MonoBehaviour>();
+            foreach (var component in components)
+            {
+                if (component.GetType().Name == "MouseLook")
+                {
+                    return component;
+                }
+            }
+
+            return null;
         }
 
         void InitGUI()
@@ -144,6 +174,7 @@ namespace ChaseCamera
             resetAfterInactivity = (bool)settingsResetAfterInactivity.GetValue();
             resetAfterTime = float.Parse(settingsResetAfterTime.GetValue().ToString());
             showSpeedAndRpm = (bool)settingsShowSpeedAndRpm.GetValue();
+            lookBehindToggle = (bool)settingsLookBehindToggle.GetValue();
 
             if (isCameraActive && guiSpeed && guiRpm)
             {
@@ -183,6 +214,7 @@ namespace ChaseCamera
             config.resetAfterInactivity = ChaseCamera.resetAfterInactivity;
             config.resetAfterTime = ChaseCamera.resetAfterTime;
             config.showSpeedAndRpm = ChaseCamera.showSpeedAndRpm;
+            config.lookBehindToggle = ChaseCamera.lookBehindToggle;
             config.vehicles = new List<ConfigVehicle>();
 
             for(int i = 0; i < vehicleCameras.Count; i++)
@@ -213,6 +245,7 @@ namespace ChaseCamera
             Settings.AddCheckBox(this, settingsResetAfterInactivity);
             Settings.AddSlider(this, settingsResetAfterTime, 1f, 10f);
             Settings.AddCheckBox(this, settingsShowSpeedAndRpm);
+            Settings.AddCheckBox(this, settingsLookBehindToggle);
 
             Settings.AddHeader(this, "Current Vehicle Settings");
             Settings.AddSlider(this, settingsOffsetY, 0f, 20f);
@@ -228,6 +261,7 @@ namespace ChaseCamera
             settingsSmoothLook.Value = smoothLook;
             settingsResetAfterTime.Value = resetAfterTime;
             settingsShowSpeedAndRpm.Value = showSpeedAndRpm;
+            settingsLookBehindToggle.Value = lookBehindToggle;
             settingsOffsetY.Value = 0f;
             settingsOffsetZ.Value = 0f;
             settingsLookAtOffsetY.Value = 0f;
@@ -236,11 +270,38 @@ namespace ChaseCamera
 
         public override void Update()
         {
-            bool isSeated = FsmVariables.GlobalVariables.FindFsmBool("PlayerSeated").Value || FsmVariables.GlobalVariables.FindFsmString("PlayerCurrentVehicle").Value != "";
+            bool isSeated = FsmVariables.GlobalVariables.FindFsmString("PlayerCurrentVehicle").Value != "";
 
-            if (!isSeated && isCameraActive || showGuiKeyBind.IsDown())
+            if (!isSeated && isCameraActive || chaseCameraKeyBind.IsDown())
             {
                 ToggleCamera();
+            }
+
+            if (isCameraActive)
+            {
+                mouseLookX.enabled = false;
+                mouseLookY.enabled = false;
+            }
+
+            if (lookBehindToggle)
+            {
+                if (lookBehindKeyBind.IsDown())
+                {
+                    isLookBehindActive = !isLookBehindActive;
+                }
+            } else
+            {
+                isLookBehindActive = lookBehindKeyBind.IsPressed();
+            }
+
+            if (isLookBehindActive && !isLookBehindActivated)
+            {
+                isLookBehindActivated = true;
+                chaseSphere.transform.localEulerAngles = new Vector3(chaseSphere.transform.localEulerAngles.x, chaseSphere.transform.localEulerAngles.y + 180f, chaseSphere.transform.localEulerAngles.z);
+            } else if (!isLookBehindActive && isLookBehindActivated)
+            {
+                isLookBehindActivated = false;
+                chaseSphere.transform.localEulerAngles = new Vector3(chaseSphere.transform.localEulerAngles.x, chaseSphere.transform.localEulerAngles.y - 180f, chaseSphere.transform.localEulerAngles.z);
             }
         }
 
@@ -274,7 +335,7 @@ namespace ChaseCamera
                     DelayedSave();
                 }
 
-                if (cameraMoveInactive <= 0f && resetAfterInactivity)
+                if (cameraMoveInactive <= 0f && resetAfterInactivity && !isLookBehindActivated)
                 {
                     chaseSphere.transform.localRotation = Quaternion.Slerp(chaseSphere.transform.localRotation, Quaternion.identity, 2.5f * Time.deltaTime);
                 }
@@ -283,7 +344,7 @@ namespace ChaseCamera
             Vector3 lookAtTarget = chaseSphere.transform.position + chaseSphere.transform.right * cameraOffset.lookAtOffset.x + chaseSphere.transform.up * cameraOffset.lookAtOffset.y + chaseSphere.transform.forward * cameraOffset.lookAtOffset.z;
             Vector3 chasePivot = chaseSphere.transform.position + chaseSphere.transform.up * cameraOffset.offset.y + chaseSphere.transform.forward * cameraOffset.offset.z * -1f;
 
-            chaseCamera.transform.position = Vector3.SmoothDamp(chaseCamera.transform.position, chasePivot, ref velocity, smoothFollow * 0.0025f);
+            chaseCamera.transform.position = Vector3.SmoothDamp(chaseCamera.transform.position, chasePivot, ref velocity, smoothFollow * (isLookBehindActivated ? 0f : 0.0025f));
 
             Quaternion targetRotation = Quaternion.LookRotation(lookAtTarget - chaseCamera.transform.position, Vector3.up);
             float deltaAngle = Quaternion.Angle(chaseCamera.transform.rotation, targetRotation);
@@ -303,6 +364,11 @@ namespace ChaseCamera
             {
                 Drivetrain drivetrain = targetVehicle.GetComponent<Drivetrain>();
                 Rigidbody rb = targetVehicle.GetComponent<Rigidbody>();
+
+                if (drivetrain == null || rb == null)
+                {
+                    return;
+                }
 
                 string textSpeed = "Speed: " + Mathf.Round(rb.velocity.magnitude * 3.6f) + "km/h";
                 string textRpm = "RPM: " + Mathf.Round(drivetrain.rpm);
@@ -332,22 +398,21 @@ namespace ChaseCamera
 
         public void ToggleCamera()
         {
-            bool isSeated = FsmVariables.GlobalVariables.FindFsmBool("PlayerSeated").Value || FsmVariables.GlobalVariables.FindFsmString("PlayerCurrentVehicle").Value != "";
-
-            isCameraActive = !isCameraActive && isSeated;
+            bool isSeated = FsmVariables.GlobalVariables.FindFsmString("PlayerCurrentVehicle").Value != "";
+            Transform currentVehicle = player.transform.root;
+            int vehicleCameraIdx = IndexOfVehicleCamera(currentVehicle.name);
+            
+            isCameraActive = !isCameraActive && isSeated && !disabledRoots.Contains(currentVehicle.name);
 
             if (isCameraActive)
             {
-                Transform currentVehicle = player.transform.root;
-                int vehicleCameraIdx = IndexOfVehicleCamera(currentVehicle.name);
-
                 if (vehicleCameraIdx > -1)
                 {
                     cameraOffset = vehicleCameras[vehicleCameraIdx];
                 }
                 else
                 {
-                    cameraOffset = new CameraOffset(currentVehicle.name, currentVehicle.name, new Vector3(0f, 0f, 0f), new Vector3(0f, 0f, 0f), 3f);
+                    cameraOffset = new CameraOffset(currentVehicle.name, currentVehicle.name, new Vector3(0f, 1.5f, 4f), new Vector3(0f, 1f, 0f), 3f);
 
                     vehicleCameras.Add(cameraOffset);
                 }

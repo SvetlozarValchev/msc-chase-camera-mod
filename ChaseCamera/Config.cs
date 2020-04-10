@@ -12,6 +12,7 @@ namespace ChaseCamera
         public bool resetAfterInactivity;
         public float resetAfterTime;
         public bool showSpeedAndRpm;
+        public bool lookBehindToggle;
         public List<ConfigVehicle> vehicles;
     }
 
