@@ -9,6 +9,7 @@ namespace ChaseCamera
     {
         public float smoothFollow;
         public float smoothLook;
+        public bool toggleLook;
         public bool resetAfterInactivity;
         public float resetAfterTime;
         public bool showSpeedAndRpm;

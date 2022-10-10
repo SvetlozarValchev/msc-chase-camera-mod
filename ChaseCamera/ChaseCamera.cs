@@ -13,14 +13,16 @@ namespace ChaseCamera
         public override string ID => "ChaseCamera"; //Your mod ID (unique)
         public override string Name => "ChaseCamera"; //You mod name
         public override string Author => "cbethax"; //Your Username
-        public override string Version => "1.4.0"; //Version
+        public override string Version => "1.4.1"; //Version
         public override bool UseAssetsFolder => true;
 
         readonly Keybind chaseCameraKeyBind = new Keybind("ChaseCameraKey", "Chase Camera Key", KeyCode.C);
+        readonly Keybind toggleLookKeyBind = new Keybind("ToggleLook", "Toggle Look Key", KeyCode.LeftControl);
         readonly Keybind lookBehindKeyBind = new Keybind("LookBehind", "Look Behind Key", KeyCode.Tab);
 
         Settings settingsSmoothFollow;
         Settings settingsSmoothLook;
+        Settings settingsToggleLook;
         Settings settingsResetAfterInactivity;
         Settings settingsResetAfterTime;
         Settings settingsShowSpeedAndRpm;
@@ -53,6 +55,7 @@ namespace ChaseCamera
 
         public static float smoothFollow;
         public static float smoothLook;
+        public static bool toggleLook;
         public static bool resetAfterInactivity;
         public static float resetAfterTime;
         public static bool showSpeedAndRpm;
@@ -85,6 +88,7 @@ namespace ChaseCamera
 
             smoothFollow = config.smoothFollow;
             smoothLook = config.smoothLook;
+            toggleLook = config.toggleLook;
             resetAfterInactivity = config.resetAfterInactivity;
             resetAfterTime = config.resetAfterTime;
             showSpeedAndRpm = config.showSpeedAndRpm;
@@ -98,6 +102,7 @@ namespace ChaseCamera
             settingsResetAfterInactivity = new Settings("autoCenter", "Auto-center camera", resetAfterInactivity, () => ApplySettings());
             settingsSmoothFollow = new Settings("followSmooth", "Follow Smooth", smoothFollow, () => ApplySettings());
             settingsSmoothLook = new Settings("lookSmooth", "Look Smooth", smoothLook, () => ApplySettings());
+            settingsToggleLook = new Settings("toggleLook", "Toggle Look", toggleLook, () => ApplySettings());
             settingsResetAfterTime = new Settings("autoCenterDelay", "Auto-center delay (seconds)", resetAfterTime, () => ApplySettings());
             settingsShowSpeedAndRpm = new Settings("showSpeedAndRpm", "Show Speed and RPM", showSpeedAndRpm, () => ApplySettings());
             settingsLookBehindToggle = new Settings("lookBehindToggle", "Look Behind Toggle", lookBehindToggle, () => ApplySettings());
@@ -110,6 +115,8 @@ namespace ChaseCamera
         public override void OnLoad()
         {
             Keybind.Add(this, chaseCameraKeyBind);
+            Keybind.Add(this, toggleLookKeyBind);
+            Keybind.Add(this, lookBehindKeyBind);
 
             player = GameObject.Find("PLAYER");
             fpsCameraParent = GameObject.Find("PLAYER/Pivot/AnimPivot/Camera/FPSCamera");
@@ -171,6 +178,7 @@ namespace ChaseCamera
         {
             smoothFollow = float.Parse(settingsSmoothFollow.GetValue().ToString());
             smoothLook = float.Parse(settingsSmoothLook.GetValue().ToString());
+            toggleLook = (bool)settingsToggleLook.GetValue();
             resetAfterInactivity = (bool)settingsResetAfterInactivity.GetValue();
             resetAfterTime = float.Parse(settingsResetAfterTime.GetValue().ToString());
             showSpeedAndRpm = (bool)settingsShowSpeedAndRpm.GetValue();
@@ -211,6 +219,7 @@ namespace ChaseCamera
 
             config.smoothFollow = ChaseCamera.smoothFollow;
             config.smoothLook = ChaseCamera.smoothLook;
+            config.toggleLook = ChaseCamera.toggleLook;
             config.resetAfterInactivity = ChaseCamera.resetAfterInactivity;
             config.resetAfterTime = ChaseCamera.resetAfterTime;
             config.showSpeedAndRpm = ChaseCamera.showSpeedAndRpm;
@@ -242,6 +251,7 @@ namespace ChaseCamera
             Settings.AddHeader(this, "Base Settings");
             Settings.AddSlider(this, settingsSmoothFollow, 0f, 100f);
             Settings.AddSlider(this, settingsSmoothLook, 0f, 100f);
+            Settings.AddCheckBox(this, settingsToggleLook);
             Settings.AddCheckBox(this, settingsResetAfterInactivity);
             Settings.AddSlider(this, settingsResetAfterTime, 1f, 10f);
             Settings.AddCheckBox(this, settingsShowSpeedAndRpm);
@@ -259,6 +269,7 @@ namespace ChaseCamera
             settingsResetAfterInactivity.Value = resetAfterInactivity;
             settingsSmoothFollow.Value = smoothFollow;
             settingsSmoothLook.Value = smoothLook;
+            settingsToggleLook.Value = toggleLook;
             settingsResetAfterTime.Value = resetAfterTime;
             settingsShowSpeedAndRpm.Value = showSpeedAndRpm;
             settingsLookBehindToggle.Value = lookBehindToggle;
@@ -324,8 +335,12 @@ namespace ChaseCamera
                 }
                 else
                 {
-                    cameraMoveInactive = resetAfterTime;
-                    chaseSphere.transform.localEulerAngles = new Vector3(chaseSphere.transform.localEulerAngles.x - 0.5f * Input.GetAxis("Mouse Y"), chaseSphere.transform.localEulerAngles.y + 0.5f * Input.GetAxis("Mouse X"), chaseSphere.transform.localEulerAngles.z);
+                    if (!toggleLook || toggleLook && toggleLookKeyBind.IsPressed())
+                    { 
+                        cameraMoveInactive = resetAfterTime;
+
+                        chaseSphere.transform.localEulerAngles = new Vector3(chaseSphere.transform.localEulerAngles.x - 0.5f * Input.GetAxis("Mouse Y"), chaseSphere.transform.localEulerAngles.y + 0.5f * Input.GetAxis("Mouse X"), chaseSphere.transform.localEulerAngles.z);
+                    }
                 }
 
                 if (Mathf.Abs(mouseWheel) > 0.01f)
